@@ -108,8 +108,12 @@ func MapTable(i interface{}) (map[string]interface{}, Table) {
 	columns := make(map[string]interface{})
 	for _, col := range table.Columns {
 		var field reflect.Value
-		for _, p := range col.Position {
+		for i, p := range col.Position {
 			field = v.Field(p)
+			// Don't bother prepping for next position on last
+			if len(col.Position) == i+1 {
+				break
+			}
 			next := field
 			if field.CanAddr() {
 				next = field.Addr()
@@ -117,7 +121,9 @@ func MapTable(i interface{}) (map[string]interface{}, Table) {
 			if next.Kind() != reflect.Struct {
 				break
 			}
-			v = structOf(next.Interface())
+			if next.CanInterface() {
+				v = structOf(next.Interface())
+			}
 		}
 		if field.CanAddr() {
 			columns[col.Name] = field.Addr().Interface()
@@ -150,8 +156,12 @@ func BindTable(i interface{}) ([]interface{}, map[string]interface{}, Table) {
 	mapping := make(map[string]interface{})
 	for i, col := range table.Columns {
 		var field reflect.Value
-		for _, p := range col.Position {
+		for i, p := range col.Position {
 			field = v.Field(p)
+			// Don't bother prepping for next position on last
+			if len(col.Position) == i+1 {
+				break
+			}
 			next := field
 			if field.CanAddr() {
 				next = field.Addr()
@@ -159,7 +169,9 @@ func BindTable(i interface{}) ([]interface{}, map[string]interface{}, Table) {
 			if next.Kind() != reflect.Struct {
 				break
 			}
-			v = structOf(next.Interface())
+			if next.CanInterface() {
+				v = structOf(next.Interface())
+			}
 		}
 
 		columns[i] = field.Interface()
@@ -209,7 +221,7 @@ func register(i interface{}) Table {
 		field := t.Field(i)
 
 		// Embed fields from anonymous structs--but not at the expense of explicit tags
-		if field.Anonymous {
+		if field.Anonymous && v.Field(i).CanInterface() {
 			_, tt := MapTable(v.Field(i).Interface())
 			if len(tt.Name) > 0 && len(table.Name) == 0 {
 				table.Name = tt.Name
